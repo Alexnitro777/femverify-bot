@@ -1,0 +1,76 @@
+import {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  User,
+} from 'discord.js';
+import { Application } from './types';
+import { verifyQuestions } from './questions';
+
+/** Embed с ответами анкеты для канала модерации. */
+export function buildApplicationEmbed(user: User, answers: Record<string, string>): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setTitle('Новая заявка на верификацию')
+    .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+    .setColor(0xfee75c)
+    .setFooter({ text: `ID: ${user.id}` })
+    .setTimestamp();
+
+  for (const q of verifyQuestions.slice(0, 5)) {
+    const value = (answers[q.id] ?? '').trim() || '—';
+    embed.addFields({
+      name: q.label,
+      value: value.length > 1024 ? value.slice(0, 1021) + '...' : value,
+    });
+  }
+  return embed;
+}
+
+/** Четыре кнопки модерации под заявкой. */
+export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`review:approve:${userId}`)
+      .setLabel('Принять')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅'),
+    new ButtonBuilder()
+      .setCustomId(`review:reject:${userId}`)
+      .setLabel('Отклонить')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('❌'),
+    new ButtonBuilder()
+      .setCustomId(`review:question:${userId}`)
+      .setLabel('Задать вопрос')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('❓'),
+    new ButtonBuilder()
+      .setCustomId(`review:blacklist:${userId}`)
+      .setLabel('ЧС')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🚫'),
+  );
+}
+
+/** Помечает embed заявки итоговым статусом и убирает кнопки. */
+export function buildResolvedEmbed(
+  original: EmbedBuilder,
+  label: string,
+  color: number,
+  reviewerId: string,
+  reason?: string,
+): EmbedBuilder {
+  const embed = original.setColor(color).addFields({
+    name: label,
+    value: reason ? `<@${reviewerId}>\nПричина: ${reason}` : `<@${reviewerId}>`,
+  });
+  return embed;
+}
+
+/** ЛС-уведомление участнику. */
+export function buildDmEmbed(title: string, description: string, color: number): EmbedBuilder {
+  return new EmbedBuilder().setTitle(title).setDescription(description).setColor(color).setTimestamp();
+}
+
+export type ReviewAction = 'approve' | 'reject' | 'question' | 'blacklist';
