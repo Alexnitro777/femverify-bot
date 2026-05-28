@@ -7,6 +7,7 @@ import {
   ButtonStyle,
   EmbedBuilder,
   ChannelType,
+  MessageFlags,
 } from 'discord.js';
 import { SlashCommand } from '../types';
 
@@ -18,7 +19,7 @@ const command: SlashCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
-      await interaction.reply({ content: 'Команду нужно запускать в текстовом канале.', ephemeral: true });
+      await interaction.reply({ content: 'Команду нужно запускать в текстовом канале.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -39,7 +40,7 @@ const command: SlashCommand = {
     );
 
     await interaction.channel.send({ embeds: [embed], components: [row] });
-    await interaction.reply({ content: 'Сообщение аппеляции размещено.', ephemeral: true });
+    await interaction.reply({ content: 'Сообщение аппеляции размещено.', flags: MessageFlags.Ephemeral });
   },
 };
 

@@ -10,6 +10,7 @@ import {
   ChannelType,
   PermissionFlagsBits,
   GuildMember,
+  MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
@@ -32,21 +33,21 @@ const handler: ButtonHandler = {
 
   async execute(interaction: ButtonInteraction): Promise<void> {
     if (!isMod(interaction)) {
-      await interaction.reply({ content: 'Недостаточно прав.', ephemeral: true });
+      await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const [, action, userId] = interaction.customId.split(':');
     const app = getApplication(userId);
     if (!app) {
-      await interaction.reply({ content: 'Заявка не найдена.', ephemeral: true });
+      await interaction.reply({ content: 'Заявка не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     // reject / blacklist требуют причину -> открываем модалку
     if (action === 'reject' || action === 'blacklist') {
       if (app.status !== 'pending') {
-        await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, ephemeral: true });
+        await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
         return;
       }
       const modal = new ModalBuilder()
@@ -68,7 +69,7 @@ const handler: ButtonHandler = {
       const guild = interaction.guild!;
       const member = await guild.members.fetch(userId).catch(() => null);
       if (!member) {
-        await interaction.reply({ content: 'Пользователь покинул сервер.', ephemeral: true });
+        await interaction.reply({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -118,19 +119,19 @@ const handler: ButtonHandler = {
       );
 
       await channel.send({ content: `<@${userId}>`, embeds: [embed], components: [row] });
-      await interaction.reply({ content: `Канал создан: <#${channel.id}>`, ephemeral: true });
+      await interaction.reply({ content: `Канал создан: <#${channel.id}>`, flags: MessageFlags.Ephemeral });
       return;
     }
 
     // approve
     if (app.status !== 'pending') {
-      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, ephemeral: true });
+      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
       return;
     }
     const guild = interaction.guild!;
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) {
-      await interaction.reply({ content: 'Пользователь покинул сервер.', ephemeral: true });
+      await interaction.reply({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
       return;
     }
     await member.roles.add(config.roles.verified).catch(() => null);

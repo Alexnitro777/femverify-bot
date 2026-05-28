@@ -4,6 +4,7 @@ import {
   TextInputBuilder,
   ActionRowBuilder,
   GuildMember,
+  MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { appealQuestions } from '../questions';
@@ -18,14 +19,14 @@ const handler: ButtonHandler = {
     if (!member || !member.roles.cache.has(config.roles.blacklist)) {
       await interaction.reply({
         content: 'Аппеляция доступна только участникам в чёрном списке.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
     const existing = getAppeal(interaction.user.id);
     if (existing?.status === 'pending') {
-      await interaction.reply({ content: 'Ваша аппеляция уже на рассмотрении.', ephemeral: true });
+      await interaction.reply({ content: 'Ваша аппеляция уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;
     }
 

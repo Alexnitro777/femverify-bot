@@ -5,5 +5,8 @@ services:
     container_name: femverify-bot
     restart: unless-stopped
     env_file: .env
+    tty: true
+    # Если используете WARP/прокси на хосте, раскомментируйте:
+    # network_mode: host
     volumes:
       - ./data:/app/data

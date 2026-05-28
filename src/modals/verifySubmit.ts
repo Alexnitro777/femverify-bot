@@ -1,4 +1,4 @@
-import { ModalSubmitInteraction, TextChannel } from 'discord.js';
+import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { verifyQuestions } from '../questions';
 import { saveApplication } from '../storage';
@@ -40,7 +40,7 @@ const handler: ModalHandler = {
 
     await interaction.reply({
       content: '✅ Анкета отправлена. Ожидайте решения модерации.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 };

@@ -1,4 +1,4 @@
-import { ButtonInteraction, PermissionFlagsBits, GuildMember } from 'discord.js';
+import { ButtonInteraction, PermissionFlagsBits, GuildMember, MessageFlags } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 
@@ -13,12 +13,12 @@ const handler: ButtonHandler = {
       (member.permissions.has(PermissionFlagsBits.ManageChannels) ||
         member.roles.cache.has(config.roles.mod));
     if (!allowed) {
-      await interaction.reply({ content: 'Недостаточно прав.', ephemeral: true });
+      await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const [, , channelId] = interaction.customId.split(':');
-    await interaction.reply({ content: 'Канал будет удалён через 5 секунд...', ephemeral: true });
+    await interaction.reply({ content: 'Канал будет удалён через 5 секунд...', flags: MessageFlags.Ephemeral });
 
     const channel = await interaction.guild?.channels.fetch(channelId).catch(() => null);
     setTimeout(() => {

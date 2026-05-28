@@ -3,6 +3,7 @@ import {
   EmbedBuilder,
   PermissionFlagsBits,
   GuildMember,
+  MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
@@ -24,18 +25,18 @@ const handler: ButtonHandler = {
 
   async execute(interaction: ButtonInteraction): Promise<void> {
     if (!isMod(interaction)) {
-      await interaction.reply({ content: 'Недостаточно прав.', ephemeral: true });
+      await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const [, action, userId] = interaction.customId.split(':');
     const appeal = getAppeal(userId);
     if (!appeal) {
-      await interaction.reply({ content: 'Аппеляция не найдена.', ephemeral: true });
+      await interaction.reply({ content: 'Аппеляция не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
     if (appeal.status !== 'pending') {
-      await interaction.reply({ content: `Аппеляция уже обработана (${appeal.status}).`, ephemeral: true });
+      await interaction.reply({ content: `Аппеляция уже обработана (${appeal.status}).`, flags: MessageFlags.Ephemeral });
       return;
     }
 

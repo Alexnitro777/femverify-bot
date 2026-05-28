@@ -5,6 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   TextChannel,
+  MessageFlags,
 } from 'discord.js';
 import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
@@ -65,7 +66,7 @@ const handler: ModalHandler = {
 
     await interaction.reply({
       content: '✅ Аппеляция отправлена. Ожидайте решения модерации.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 };

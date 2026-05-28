@@ -1,4 +1,4 @@
-import { Interaction } from 'discord.js';
+import { Interaction, MessageFlags } from 'discord.js';
 import { BotClient } from '../types';
 
 export async function handleInteraction(client: BotClient, interaction: Interaction): Promise<void> {
@@ -39,7 +39,7 @@ export async function handleInteraction(client: BotClient, interaction: Interact
     console.error('Interaction error:', err);
     if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
       await interaction
-        .reply({ content: 'Произошла ошибка при обработке.', ephemeral: true })
+        .reply({ content: 'Произошла ошибка при обработке.', flags: MessageFlags.Ephemeral })
         .catch(() => null);
     }
   }

@@ -4,6 +4,7 @@ import {
   TextInputBuilder,
   ActionRowBuilder,
   GuildMember,
+  MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { verifyQuestions } from '../questions';
@@ -19,18 +20,18 @@ const handler: ButtonHandler = {
     if (member && member.roles.cache.has(config.roles.blacklist)) {
       await interaction.reply({
         content: 'Вы находитесь в чёрном списке. Используйте канал аппеляции.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
     const existing = getApplication(interaction.user.id);
     if (existing?.status === 'pending') {
-      await interaction.reply({ content: 'Ваша заявка уже на рассмотрении.', ephemeral: true });
+      await interaction.reply({ content: 'Ваша заявка уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;
     }
     if (existing?.status === 'approved') {
-      await interaction.reply({ content: 'Вы уже верифицированы.', ephemeral: true });
+      await interaction.reply({ content: 'Вы уже верифицированы.', flags: MessageFlags.Ephemeral });
       return;
     }
 

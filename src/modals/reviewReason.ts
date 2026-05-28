@@ -1,4 +1,4 @@
-import { ModalSubmitInteraction, EmbedBuilder, TextChannel } from 'discord.js';
+import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { config } from '../config';
 import { getApplication, updateApplication } from '../storage';
@@ -14,11 +14,11 @@ const handler: ModalHandler = {
 
     const app = getApplication(userId);
     if (!app) {
-      await interaction.reply({ content: 'Заявка не найдена.', ephemeral: true });
+      await interaction.reply({ content: 'Заявка не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
     if (app.status !== 'pending') {
-      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, ephemeral: true });
+      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -75,7 +75,7 @@ const handler: ModalHandler = {
 
     await interaction.reply({
       content: action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 };

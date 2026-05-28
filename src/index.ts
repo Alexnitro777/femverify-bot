@@ -5,6 +5,12 @@ import { loadCommands, loadButtons, loadModals } from './handlers/loader';
 import { handleInteraction } from './handlers/interactionCreate';
 
 async function bootstrap(): Promise<void> {
+  console.log('[boot] starting...');
+  console.log('[boot] node', process.version);
+  console.log('[boot] token present:', Boolean(process.env.DISCORD_TOKEN));
+  console.log('[boot] clientId present:', Boolean(process.env.CLIENT_ID));
+  console.log('[boot] guildId present:', Boolean(process.env.GUILD_ID));
+
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
     partials: [Partials.GuildMember],
@@ -17,10 +23,14 @@ async function bootstrap(): Promise<void> {
   await loadCommands(client);
   await loadButtons(client);
   await loadModals(client);
+  console.log('[boot] handlers loaded, logging in...');
 
-  client.once('ready', (c) => {
+  client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
   });
+
+  client.on('error', (err) => console.error('[client error]', err));
+  client.on('shardError', (err) => console.error('[shard error]', err));
 
   client.on('interactionCreate', (interaction) => handleInteraction(client, interaction));
 
