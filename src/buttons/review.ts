@@ -118,7 +118,12 @@ const handler: ButtonHandler = {
           .setEmoji('🗑️'),
       );
 
-      await channel.send({ content: `<@${userId}>`, embeds: [embed], components: [row] });
+      const pingMsg = await channel.send({
+        content: `<@${userId}> <@${interaction.user.id}>`,
+        allowedMentions: { users: [userId, interaction.user.id] },
+      });
+      await channel.send({ embeds: [embed], components: [row] });
+      await pingMsg.delete().catch(() => null);
       await interaction.reply({ content: `Канал создан: <#${channel.id}>`, flags: MessageFlags.Ephemeral });
       return;
     }
