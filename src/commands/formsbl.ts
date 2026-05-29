@@ -1,0 +1,44 @@
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  MessageFlags,
+} from 'discord.js';
+import { SlashCommand } from '../types';
+import { listPendingAppeals } from '../storage';
+
+const command: SlashCommand = {
+  data: new SlashCommandBuilder()
+    .setName('formsbl')
+    .setDescription('Показать все непринятые аппеляции')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as unknown as SlashCommand['data'],
+
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    const pending = listPendingAppeals();
+
+    if (pending.length === 0) {
+      await interaction.reply({
+        content: 'Непринятых аппеляций нет. 🎉',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const lines = pending.map((appeal, i) => {
+      const ts = Math.floor(appeal.submittedAt / 1000);
+      const link = appeal.reviewMessageUrl ? ` — [перейти](${appeal.reviewMessageUrl})` : '';
+      return `**${i + 1}.** <@${appeal.userId}> (${appeal.username}) — <t:${ts}:R>${link}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle(`⚖️ Непринятые аппеляции — ${pending.length}`)
+      .setColor(0xeb459e)
+      .setDescription(lines.join('\n').slice(0, 4096))
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  },
+};
+
+export default command;

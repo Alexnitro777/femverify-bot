@@ -55,6 +55,7 @@ export interface Appeal {
   text: string;
   submittedAt: number;
   status: AppealStatus;
+  reviewMessageUrl?: string;
   reviewerId?: string;
   reason?: string;
 }
