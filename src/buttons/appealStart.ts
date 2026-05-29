@@ -30,7 +30,7 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const modal = new ModalBuilder().setCustomId('appeal:submit').setTitle('Форма аппеляции');
+    const modal = new ModalBuilder().setCustomId('appeal:submit').setTitle('Апелляция на разблокировку');
     const rows = appealQuestions.slice(0, 5).map((q) => {
       const input = new TextInputBuilder()
         .setCustomId(q.id)

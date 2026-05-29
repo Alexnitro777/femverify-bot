@@ -15,61 +15,41 @@ export interface Question {
 // Вопросы анкеты верификации
 export const verifyQuestions: Question[] = [
   {
-    id: 'age',
-    label: 'Сколько вам лет?',
-    style: TextInputStyle.Short,
-    required: true,
-    minLength: 1,
-    maxLength: 3,
-    placeholder: 'Например: 18',
-  },
-  {
     id: 'source',
-    label: 'Откуда вы узнали о сервере?',
-    style: TextInputStyle.Short,
-    required: true,
-    maxLength: 200,
-  },
-  {
-    id: 'about',
-    label: 'Расскажите немного о себе',
+    label: 'Откуда узнали про сервер?',
     style: TextInputStyle.Paragraph,
     required: true,
-    minLength: 20,
-    maxLength: 1000,
+    maxLength: 300,
+    placeholder:
+      'Например: от конкретного участника, с конкретного сервера, из TikTok/Telegram по такой-то ссылке…',
+  },
+  {
+    id: 'expectations',
+    label: 'Что ожидаете от сервера?',
+    style: TextInputStyle.Paragraph,
+    required: true,
+    maxLength: 500,
+    placeholder: 'Например: хочу найти друзей, общение, компанию для игр, ивенты…',
   },
   {
     id: 'rules',
-    label: 'Прочитали ли вы правила? (да/нет)',
+    label: 'Читали ли правила и согласны ли вы с ними?',
     style: TextInputStyle.Short,
     required: true,
-    maxLength: 10,
-  },
-  {
-    id: 'goals',
-    label: 'Что вы ждёте от сервера?',
-    style: TextInputStyle.Paragraph,
-    required: false,
-    maxLength: 500,
+    maxLength: 50,
+    placeholder: 'Да, прочитал(а) и согласен(на)',
   },
 ];
 
-// Вопросы формы аппеляции
+// Вопросы формы апелляции
 export const appealQuestions: Question[] = [
   {
-    id: 'reason',
-    label: 'Почему вас занесли в ЧС?',
-    style: TextInputStyle.Paragraph,
-    required: true,
-    minLength: 10,
-    maxLength: 500,
-  },
-  {
-    id: 'argument',
-    label: 'Почему вас стоит амнистировать?',
+    id: 'text',
+    label: 'Текст апелляции',
     style: TextInputStyle.Paragraph,
     required: true,
     minLength: 20,
     maxLength: 1000,
+    placeholder: 'Опиши спокойно: за что, как ты понял ситуацию, и почему стоит дать второй шанс.',
   },
 ];

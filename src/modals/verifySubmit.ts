@@ -18,16 +18,6 @@ const handler: ModalHandler = {
       }
     }
 
-    // Валидация ответов до отправки в модерацию (баг #7).
-    const age = Number(answers.age);
-    if (!Number.isInteger(age) || age < 1 || age > 120) {
-      await interaction.reply({
-        content: 'Возраст указан некорректно — введите число от 1 до 120.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
     // Долгая часть — деферим, чтобы уложиться в окно ответа Discord (баг #1).
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
