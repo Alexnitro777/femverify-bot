@@ -33,7 +33,8 @@ db.exec(`
     status      TEXT NOT NULL,
     reviewMessageUrl TEXT,
     reviewerId  TEXT,
-    reason      TEXT
+    reason      TEXT,
+    resolvedAt  INTEGER
   );
 `);
 
@@ -47,6 +48,13 @@ try {
 // Миграция для БД, созданных до появления колонки reviewMessageUrl у аппеляций.
 try {
   db.exec('ALTER TABLE appeals ADD COLUMN reviewMessageUrl TEXT;');
+} catch {
+  // Колонка уже существует — игнорируем.
+}
+
+// Миграция для БД, созданных до появления колонки resolvedAt у аппеляций.
+try {
+  db.exec('ALTER TABLE appeals ADD COLUMN resolvedAt INTEGER;');
 } catch {
   // Колонка уже существует — игнорируем.
 }
@@ -180,6 +188,7 @@ interface AppealRow {
   reviewMessageUrl: string | null;
   reviewerId: string | null;
   reason: string | null;
+  resolvedAt: number | null;
 }
 
 function rowToAppeal(row: AppealRow): Appeal {
@@ -192,12 +201,13 @@ function rowToAppeal(row: AppealRow): Appeal {
     reviewMessageUrl: row.reviewMessageUrl ?? undefined,
     reviewerId: row.reviewerId ?? undefined,
     reason: row.reason ?? undefined,
+    resolvedAt: row.resolvedAt ?? undefined,
   };
 }
 
 const insertAppeal = db.prepare(`
-  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason)
-  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason)
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     text = excluded.text,
@@ -205,7 +215,8 @@ const insertAppeal = db.prepare(`
     status = excluded.status,
     reviewMessageUrl = excluded.reviewMessageUrl,
     reviewerId = excluded.reviewerId,
-    reason = excluded.reason
+    reason = excluded.reason,
+    resolvedAt = excluded.resolvedAt
 `);
 
 export function saveAppeal(appeal: Appeal): void {
@@ -218,6 +229,7 @@ export function saveAppeal(appeal: Appeal): void {
     reviewMessageUrl: appeal.reviewMessageUrl ?? null,
     reviewerId: appeal.reviewerId ?? null,
     reason: appeal.reason ?? null,
+    resolvedAt: appeal.resolvedAt ?? null,
   });
 }
 
@@ -247,8 +259,9 @@ export function updateAppeal(userId: string, patch: Partial<Appeal>): Appeal | u
 }
 
 // Атомарный переход статуса аппеляции (см. claimApplication).
+// Заодно фиксирует resolvedAt — момент, от которого считается cooldown.
 const claimAppealStmt = db.prepare(
-  `UPDATE appeals SET status = @to, reviewerId = @reviewerId, reason = @reason
+  `UPDATE appeals SET status = @to, reviewerId = @reviewerId, reason = @reason, resolvedAt = @resolvedAt
    WHERE userId = @userId AND status = 'pending'`,
 );
 
@@ -261,7 +274,14 @@ export function claimAppeal(
   to: AppealStatus,
   reviewerId: string,
   reason?: string,
+  resolvedAt: number = Date.now(),
 ): boolean {
-  const result = claimAppealStmt.run({ userId, to, reviewerId, reason: reason ?? null });
+  const result = claimAppealStmt.run({
+    userId,
+    to,
+    reviewerId,
+    reason: reason ?? null,
+    resolvedAt,
+  });
   return result.changes === 1;
 }

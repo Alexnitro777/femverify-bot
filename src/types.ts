@@ -58,4 +58,6 @@ export interface Appeal {
   reviewMessageUrl?: string;
   reviewerId?: string;
   reason?: string;
+  // Момент обработки модератором (amnesty/deny). От него считается cooldown 48 ч.
+  resolvedAt?: number;
 }
