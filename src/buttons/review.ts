@@ -9,23 +9,13 @@ import {
   ButtonStyle,
   ChannelType,
   PermissionFlagsBits,
-  GuildMember,
   MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
-import { getApplication, updateApplication } from '../storage';
+import { getApplication, claimApplication, updateApplication } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed } from '../ui';
-
-function isMod(interaction: ButtonInteraction): boolean {
-  if (!interaction.inGuild()) return false;
-  const member = interaction.member as GuildMember | null;
-  if (!member) return false;
-  return (
-    member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-    member.roles.cache.has(config.roles.mod)
-  );
-}
+import { isMod, getGuild } from '../permissions';
 
 // review:<action>:<userId>
 const handler: ButtonHandler = {
@@ -34,6 +24,12 @@ const handler: ButtonHandler = {
   async execute(interaction: ButtonInteraction): Promise<void> {
     if (!isMod(interaction)) {
       await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const guild = getGuild(interaction);
+    if (!guild) {
+      await interaction.reply({ content: 'Действие доступно только на сервере.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -66,10 +62,21 @@ const handler: ButtonHandler = {
 
     // question -> создаём приватный канал, не меняя статус заявки
     if (action === 'question') {
-      const guild = interaction.guild!;
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      // Защита от дублей: если канал уже создан и ещё существует — вернём
+      // ссылку на него вместо создания нового (баг #5).
+      if (app.questionChannelId) {
+        const existing = await guild.channels.fetch(app.questionChannelId).catch(() => null);
+        if (existing) {
+          await interaction.editReply({ content: `Канал с вопросом уже существует: <#${existing.id}>` });
+          return;
+        }
+      }
+
       const member = await guild.members.fetch(userId).catch(() => null);
       if (!member) {
-        await interaction.reply({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: 'Пользователь покинул сервер.' });
         return;
       }
 
@@ -98,6 +105,8 @@ const handler: ButtonHandler = {
         ],
       });
 
+      updateApplication(userId, { questionChannelId: channel.id });
+
       const embed = new EmbedBuilder()
         .setTitle('Уточнение по заявке')
         .setDescription(
@@ -124,29 +133,51 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.reply({ content: `Канал создан: <#${channel.id}>`, flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: `Канал создан: <#${channel.id}>` });
       return;
     }
 
-    // approve
-    if (app.status !== 'pending') {
-      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
-      return;
-    }
-    const guild = interaction.guild!;
+    // approve — редактируем исходное сообщение, поэтому deferUpdate (баг #1).
+    await interaction.deferUpdate();
+
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) {
-      await interaction.reply({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
+      await interaction.followUp({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
       return;
     }
-    await member.roles.add(config.roles.verified).catch(() => null);
-    updateApplication(userId, { status: 'approved', reviewerId: interaction.user.id });
 
-    await member
+    // Атомарно «столбим» заявку, чтобы при двойном клике двух модераторов
+    // роль и ЛС выдались ровно один раз (баг #2).
+    const claimed = claimApplication(userId, 'approved', interaction.user.id);
+    if (!claimed) {
+      const fresh = getApplication(userId);
+      await interaction.followUp({
+        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Проверяем успех выдачи роли — если упало (иерархия ролей), откатываем
+    // статус обратно в pending, чтобы заявка не висела «одобренной» без роли (баг #3).
+    try {
+      await member.roles.add(config.roles.verified);
+    } catch (e) {
+      console.error('[review] roles.add failed', e);
+      updateApplication(userId, { status: 'pending', reviewerId: undefined });
+      await interaction.followUp({
+        content: '❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const dmOk = await member
       .send({
         embeds: [buildDmEmbed('✅ Заявка одобрена', 'Добро пожаловать на сервер!', 0x57f287)],
       })
-      .catch(() => null);
+      .then(() => true)
+      .catch(() => false);
 
     const resolved = buildResolvedEmbed(
       EmbedBuilder.from(interaction.message.embeds[0]),
@@ -154,7 +185,14 @@ const handler: ButtonHandler = {
       0x57f287,
       interaction.user.id,
     );
-    await interaction.update({ embeds: [resolved], components: [] });
+    await interaction.editReply({ embeds: [resolved], components: [] });
+
+    if (!dmOk) {
+      await interaction.followUp({
+        content: '⚠️ Роль выдана, но отправить ЛС не удалось (закрыты личные сообщения).',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   },
 };
 

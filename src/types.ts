@@ -46,6 +46,7 @@ export interface Application {
   reviewMessageUrl?: string;
   reviewerId?: string;
   reason?: string;
+  questionChannelId?: string;
 }
 
 export interface Appeal {

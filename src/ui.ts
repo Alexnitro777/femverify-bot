@@ -53,7 +53,7 @@ export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuild
   );
 }
 
-/** Помечает embed заявки итоговым статусом и убирает кнопки. */
+/** Помечает embed заявки итоговым статусом и убирает кнопки. Работает с копией, не мутируя исходный. */
 export function buildResolvedEmbed(
   original: EmbedBuilder,
   label: string,
@@ -61,11 +61,12 @@ export function buildResolvedEmbed(
   reviewerId: string,
   reason?: string,
 ): EmbedBuilder {
-  const embed = original.setColor(color).addFields({
-    name: label,
-    value: reason ? `<@${reviewerId}>\nПричина: ${reason}` : `<@${reviewerId}>`,
-  });
-  return embed;
+  return EmbedBuilder.from(original.data)
+    .setColor(color)
+    .addFields({
+      name: label,
+      value: reason ? `<@${reviewerId}>\nПричина: ${reason}` : `<@${reviewerId}>`,
+    });
 }
 
 /** ЛС-уведомление участнику. */

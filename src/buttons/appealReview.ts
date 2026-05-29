@@ -1,23 +1,13 @@
 import {
   ButtonInteraction,
   EmbedBuilder,
-  PermissionFlagsBits,
-  GuildMember,
   MessageFlags,
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
-import { getAppeal, updateAppeal } from '../storage';
+import { getAppeal, claimAppeal } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed } from '../ui';
-
-function isMod(interaction: ButtonInteraction): boolean {
-  const member = interaction.member as GuildMember | null;
-  if (!member) return false;
-  return (
-    member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-    member.roles.cache.has(config.roles.mod)
-  );
-}
+import { isMod, getGuild } from '../permissions';
 
 // appeal:<amnesty|deny>:<userId>
 const handler: ButtonHandler = {
@@ -30,23 +20,44 @@ const handler: ButtonHandler = {
     }
 
     const [, action, userId] = interaction.customId.split(':');
+
+    // Редактируем исходное сообщение -> deferUpdate перед сетевыми вызовами (баг #1).
+    await interaction.deferUpdate();
+
     const appeal = getAppeal(userId);
     if (!appeal) {
-      await interaction.reply({ content: 'Аппеляция не найдена.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (appeal.status !== 'pending') {
-      await interaction.reply({ content: `Аппеляция уже обработана (${appeal.status}).`, flags: MessageFlags.Ephemeral });
+      await interaction.followUp({ content: 'Аппеляция не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
 
-    const guild = interaction.guild!;
-    const member = await guild.members.fetch(userId).catch(() => null);
+    const newStatus = action === 'amnesty' ? 'amnestied' : 'denied';
+    // Атомарно переводим из pending — защита от двойной обработки.
+    const claimed = claimAppeal(userId, newStatus, interaction.user.id);
+    if (!claimed) {
+      const fresh = getAppeal(userId);
+      await interaction.followUp({
+        content: `Аппеляция уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
 
+    const guild = getGuild(interaction);
+    const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
+
+    let warning: string | undefined;
     if (action === 'amnesty') {
-      // Снимаем только роль ЧС
-      await member?.roles.remove(config.roles.blacklist).catch(() => null);
-      updateAppeal(userId, { status: 'amnestied', reviewerId: interaction.user.id });
+      // Снимаем только роль ЧС. Проверяем успех — при ошибке предупреждаем модератора.
+      const removed = await member?.roles
+        .remove(config.roles.blacklist)
+        .then(() => true)
+        .catch((e) => {
+          console.error('[appealReview] roles.remove failed', e);
+          return false;
+        });
+      if (member && !removed) {
+        warning = '⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.';
+      }
       await member
         ?.send({
           embeds: [
@@ -59,7 +70,6 @@ const handler: ButtonHandler = {
         })
         .catch(() => null);
     } else {
-      updateAppeal(userId, { status: 'denied', reviewerId: interaction.user.id });
       await member
         ?.send({
           embeds: [
@@ -75,7 +85,11 @@ const handler: ButtonHandler = {
       action === 'amnesty' ? 0x57f287 : 0xed4245,
       interaction.user.id,
     );
-    await interaction.update({ embeds: [resolved], components: [] });
+    await interaction.editReply({ embeds: [resolved], components: [] });
+
+    if (warning) {
+      await interaction.followUp({ content: warning, flags: MessageFlags.Ephemeral });
+    }
   },
 };
 

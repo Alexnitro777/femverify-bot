@@ -1,4 +1,4 @@
-FROM node:24-slim AS builder
+FROM node:24.16-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -6,7 +6,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:24-slim AS runtime
+FROM node:24.16-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NODE_NO_WARNINGS=1
@@ -15,4 +15,5 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
-CMD ["node", "dist/index.js"]
+# Флаг --experimental-sqlite — для единообразия с npm-скриптом start (баг #9).
+CMD ["node", "--experimental-sqlite", "dist/index.js"]

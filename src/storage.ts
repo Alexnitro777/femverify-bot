@@ -21,7 +21,8 @@ db.exec(`
     status          TEXT NOT NULL,
     reviewMessageUrl TEXT,
     reviewerId      TEXT,
-    reason          TEXT
+    reason          TEXT,
+    questionChannelId TEXT
   );
 
   CREATE TABLE IF NOT EXISTS appeals (
@@ -35,6 +36,22 @@ db.exec(`
   );
 `);
 
+// Миграция для БД, созданных до появления колонки questionChannelId.
+try {
+  db.exec('ALTER TABLE applications ADD COLUMN questionChannelId TEXT;');
+} catch {
+  // Колонка уже существует — игнорируем.
+}
+
+/** Корректно закрывает соединение с БД (для graceful shutdown). */
+export function closeDb(): void {
+  try {
+    db.close();
+  } catch {
+    // Уже закрыто.
+  }
+}
+
 // --- Applications ---
 
 interface AppRow {
@@ -47,6 +64,7 @@ interface AppRow {
   reviewMessageUrl: string | null;
   reviewerId: string | null;
   reason: string | null;
+  questionChannelId: string | null;
 }
 
 function rowToApp(row: AppRow): Application {
@@ -60,12 +78,13 @@ function rowToApp(row: AppRow): Application {
     reviewMessageUrl: row.reviewMessageUrl ?? undefined,
     reviewerId: row.reviewerId ?? undefined,
     reason: row.reason ?? undefined,
+    questionChannelId: row.questionChannelId ?? undefined,
   };
 }
 
 const insertApp = db.prepare(`
-  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason)
-  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason)
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     answers = excluded.answers,
@@ -73,7 +92,8 @@ const insertApp = db.prepare(`
     status = excluded.status,
     reviewMessageUrl = excluded.reviewMessageUrl,
     reviewerId = excluded.reviewerId,
-    reason = excluded.reason
+    reason = excluded.reason,
+    questionChannelId = excluded.questionChannelId
 `);
 
 export function saveApplication(app: Application): void {
@@ -87,6 +107,7 @@ export function saveApplication(app: Application): void {
     reviewMessageUrl: app.reviewMessageUrl ?? null,
     reviewerId: app.reviewerId ?? null,
     reason: app.reason ?? null,
+    questionChannelId: app.questionChannelId ?? null,
   });
 }
 
@@ -106,6 +127,28 @@ export function updateApplication(
   const updated = { ...current, ...patch };
   saveApplication(updated);
   return updated;
+}
+
+// Атомарный переход статуса заявки: меняет статус только если она ещё `pending`.
+// Защищает от гонки при одновременном клике двух модераторов — UPDATE с
+// условием выполнится ровно один раз, остальные получат changes === 0.
+const claimApp = db.prepare(
+  `UPDATE applications SET status = @to, reviewerId = @reviewerId, reason = @reason
+   WHERE userId = @userId AND status = 'pending'`,
+);
+
+/**
+ * Пытается «застолбить» заявку, переведя её из `pending` в целевой статус.
+ * @returns true только у первого вызвавшего; false если заявка уже обработана.
+ */
+export function claimApplication(
+  userId: string,
+  to: ApplicationStatus,
+  reviewerId: string,
+  reason?: string,
+): boolean {
+  const result = claimApp.run({ userId, to, reviewerId, reason: reason ?? null });
+  return result.changes === 1;
 }
 
 // --- Appeals ---
@@ -169,4 +212,24 @@ export function updateAppeal(userId: string, patch: Partial<Appeal>): Appeal | u
   const updated = { ...current, ...patch };
   saveAppeal(updated);
   return updated;
+}
+
+// Атомарный переход статуса аппеляции (см. claimApplication).
+const claimAppealStmt = db.prepare(
+  `UPDATE appeals SET status = @to, reviewerId = @reviewerId, reason = @reason
+   WHERE userId = @userId AND status = 'pending'`,
+);
+
+/**
+ * Пытается «застолбить» аппеляцию, переведя её из `pending` в целевой статус.
+ * @returns true только у первого вызвавшего; false если уже обработана.
+ */
+export function claimAppeal(
+  userId: string,
+  to: AppealStatus,
+  reviewerId: string,
+  reason?: string,
+): boolean {
+  const result = claimAppealStmt.run({ userId, to, reviewerId, reason: reason ?? null });
+  return result.changes === 1;
 }

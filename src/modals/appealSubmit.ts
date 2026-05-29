@@ -30,13 +30,8 @@ const handler: ModalHandler = {
       .map((q) => `**${q.label}**\n${(answers[q.id] ?? '').trim() || '—'}`)
       .join('\n\n');
 
-    saveAppeal({
-      userId: interaction.user.id,
-      username: interaction.user.tag,
-      text,
-      submittedAt: Date.now(),
-      status: 'pending',
-    });
+    // Долгая часть — деферим, чтобы уложиться в окно ответа Discord (баг #1).
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle('Новая аппеляция')
@@ -59,14 +54,43 @@ const handler: ModalHandler = {
         .setEmoji('❌'),
     );
 
-    const channel = await interaction.client.channels.fetch(config.channels.appealReview);
-    if (channel?.isTextBased()) {
-      await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+    const channel = await interaction.client.channels
+      .fetch(config.channels.appealReview)
+      .catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      // Канал ревью аппеляций недоступен — не сохраняем, иначе аппеляция
+      // зависнет в pending без сообщения для модерации (баг #4).
+      console.error('[appealSubmit] appeal review channel unavailable:', config.channels.appealReview);
+      await interaction.editReply({
+        content: '❌ Не удалось отправить аппеляцию: канал модерации недоступен. Сообщите администрации.',
+      });
+      return;
     }
 
-    await interaction.reply({
+    const msg = await (channel as TextChannel)
+      .send({ embeds: [embed], components: [row] })
+      .catch((e) => {
+        console.error('[appealSubmit] failed to post appeal message:', e);
+        return null;
+      });
+
+    if (!msg) {
+      await interaction.editReply({
+        content: '❌ Не удалось отправить аппеляцию модерации. Попробуйте позже или сообщите администрации.',
+      });
+      return;
+    }
+
+    saveAppeal({
+      userId: interaction.user.id,
+      username: interaction.user.tag,
+      text,
+      submittedAt: Date.now(),
+      status: 'pending',
+    });
+
+    await interaction.editReply({
       content: '✅ Аппеляция отправлена. Ожидайте решения модерации.',
-      flags: MessageFlags.Ephemeral,
     });
   },
 };

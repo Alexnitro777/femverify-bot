@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { config } from '../config';
-import { getApplication, updateApplication } from '../storage';
+import { getApplication, claimApplication } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed } from '../ui';
 
 // review:reason:<reject|blacklist>:<userId>
@@ -12,22 +12,31 @@ const handler: ModalHandler = {
     const [, , action, userId] = interaction.customId.split(':');
     const reason = interaction.fields.getTextInputValue('reason').trim();
 
+    // Деферим заранее: дальше идут сетевые вызовы (баг #1).
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     const app = getApplication(userId);
     if (!app) {
-      await interaction.reply({ content: 'Заявка не найдена.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (app.status !== 'pending') {
-      await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: 'Заявка не найдена.' });
       return;
     }
 
-    const guild = interaction.guild!;
-    const member = await guild.members.fetch(userId).catch(() => null);
+    const newStatus = action === 'blacklist' ? 'blacklisted' : 'rejected';
+    // Атомарно переводим из pending — защита от двойной обработки.
+    const claimed = claimApplication(userId, newStatus, interaction.user.id, reason);
+    if (!claimed) {
+      const fresh = getApplication(userId);
+      await interaction.editReply({
+        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+      });
+      return;
+    }
+
+    const guild = interaction.guild;
+    const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
 
     if (action === 'blacklist') {
       await member?.roles.add(config.roles.blacklist).catch(() => null);
-      updateApplication(userId, { status: 'blacklisted', reviewerId: interaction.user.id, reason });
       await member
         ?.send({
           embeds: [
@@ -40,7 +49,6 @@ const handler: ModalHandler = {
         })
         .catch(() => null);
     } else {
-      updateApplication(userId, { status: 'rejected', reviewerId: interaction.user.id, reason });
       await member
         ?.send({
           embeds: [
@@ -73,9 +81,8 @@ const handler: ModalHandler = {
       }
     }
 
-    await interaction.reply({
+    await interaction.editReply({
       content: action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.',
-      flags: MessageFlags.Ephemeral,
     });
   },
 };

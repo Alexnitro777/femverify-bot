@@ -37,9 +37,17 @@ export async function handleInteraction(client: BotClient, interaction: Interact
     }
   } catch (err) {
     console.error('Interaction error:', err);
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+    if (!interaction.isRepliable()) return;
+    const message = 'Произошла ошибка при обработке.';
+    // Учитываем, что хендлер мог уже сделать defer (баг #1): тогда нужен
+    // editReply/followUp, иначе reply упадёт с "already acknowledged".
+    if (interaction.deferred) {
+      await interaction.editReply({ content: message }).catch(() => null);
+    } else if (interaction.replied) {
+      await interaction.followUp({ content: message, flags: MessageFlags.Ephemeral }).catch(() => null);
+    } else {
       await interaction
-        .reply({ content: 'Произошла ошибка при обработке.', flags: MessageFlags.Ephemeral })
+        .reply({ content: message, flags: MessageFlags.Ephemeral })
         .catch(() => null);
     }
   }

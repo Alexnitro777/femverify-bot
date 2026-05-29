@@ -18,12 +18,14 @@ const handler: ButtonHandler = {
     }
 
     const [, , channelId] = interaction.customId.split(':');
-    await interaction.reply({ content: 'Канал будет удалён через 5 секунд...', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'Удаляю канал...', flags: MessageFlags.Ephemeral });
 
+    // Удаляем сразу: setTimeout не переживёт перезапуск процесса (баг #6).
     const channel = await interaction.guild?.channels.fetch(channelId).catch(() => null);
-    setTimeout(() => {
-      channel?.delete().catch(() => null);
-    }, 5000);
+    await channel?.delete().catch((e) => {
+      console.error('[questionClose] failed to delete channel', e);
+      return null;
+    });
   },
 };
 
