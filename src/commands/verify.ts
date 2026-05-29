@@ -56,7 +56,7 @@ const command: SlashCommand = {
             '❓ **Ошибка взаимодействия?** Подожди 1–2 минуты и снова жми кнопку. Если не помогает — напиши администрации в ЛС.',
         },
       )
-      .setFooter({ text: 'Нажми кнопку ниже, чтобы открыть анкету · Кросс-верификация' });
+      .setFooter({ text: 'Нажми кнопку ниже, чтобы открыть анкету' });
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
