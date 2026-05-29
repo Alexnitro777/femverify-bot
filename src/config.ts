@@ -6,6 +6,11 @@ function required(name: string): string {
   return value;
 }
 
+function optional(name: string): string | undefined {
+  const value = process.env[name];
+  return value && value.trim() ? value : undefined;
+}
+
 export const config = {
   token: required('DISCORD_TOKEN'),
   clientId: required('CLIENT_ID'),
@@ -20,6 +25,8 @@ export const config = {
   channels: {
     review: required('REVIEW_CHANNEL_ID'),
     appealReview: required('APPEAL_REVIEW_CHANNEL_ID'),
+    // Канал, куда отправляется приветственный embed после принятия верификации.
+    welcome: optional('WELCOME_CHANNEL_ID'),
   },
 
   questionCategoryId: required('QUESTION_CATEGORY_ID'),

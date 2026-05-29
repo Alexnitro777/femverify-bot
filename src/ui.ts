@@ -4,6 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   User,
+  GuildMember,
 } from 'discord.js';
 import { Application } from './types';
 import { verifyQuestions } from './questions';
@@ -72,6 +73,28 @@ export function buildResolvedEmbed(
 /** ЛС-уведомление участнику. */
 export function buildDmEmbed(title: string, description: string, color: number): EmbedBuilder {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor(color).setTimestamp();
+}
+
+/**
+ * Приветственный embed в общий канал после принятия верификации.
+ * Формат по reference: автор — принятый участник, ник-пинг в описании,
+ * поля «Участник №» и «Аккаунт создан», футер с названием/иконкой сервера.
+ */
+export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
+  const { guild, user } = member;
+  const createdTs = Math.floor(user.createdTimestamp / 1000);
+
+  return new EmbedBuilder()
+    .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+    .setTitle('🎉  Добро пожаловать!')
+    .setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**.`)
+    .addFields(
+      { name: '👥  Участник №', value: `${guild.memberCount}`, inline: true },
+      { name: '🗓  Аккаунт создан', value: `<t:${createdTs}:R>`, inline: true },
+    )
+    .setColor(0x57f287)
+    .setFooter({ text: guild.name, iconURL: guild.iconURL() ?? undefined })
+    .setTimestamp();
 }
 
 export type ReviewAction = 'approve' | 'reject' | 'question' | 'blacklist';

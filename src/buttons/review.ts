@@ -14,7 +14,7 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication, updateApplication } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, buildWelcomeEmbed } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 // review:<action>:<userId>
@@ -186,6 +186,22 @@ const handler: ButtonHandler = {
       interaction.user.id,
     );
     await interaction.editReply({ embeds: [resolved], components: [] });
+
+    // Приветственный embed в общий канал (если настроен WELCOME_CHANNEL_ID).
+    if (config.channels.welcome) {
+      try {
+        const welcomeChannel = await guild.channels.fetch(config.channels.welcome);
+        if (welcomeChannel?.isTextBased()) {
+          await welcomeChannel.send({
+            content: `<@${userId}>`,
+            embeds: [buildWelcomeEmbed(member)],
+            allowedMentions: { users: [userId] },
+          });
+        }
+      } catch (e) {
+        console.error('[review] welcome message failed', e);
+      }
+    }
 
     if (!dmOk) {
       await interaction.followUp({
