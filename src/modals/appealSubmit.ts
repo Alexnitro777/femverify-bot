@@ -87,6 +87,7 @@ const handler: ModalHandler = {
       text,
       submittedAt: Date.now(),
       status: 'pending',
+      reviewMessageUrl: msg.url,
     });
 
     await interaction.editReply({

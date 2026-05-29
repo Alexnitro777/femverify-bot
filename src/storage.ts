@@ -31,6 +31,7 @@ db.exec(`
     text        TEXT NOT NULL,
     submittedAt INTEGER NOT NULL,
     status      TEXT NOT NULL,
+    reviewMessageUrl TEXT,
     reviewerId  TEXT,
     reason      TEXT
   );
@@ -39,6 +40,13 @@ db.exec(`
 // Миграция для БД, созданных до появления колонки questionChannelId.
 try {
   db.exec('ALTER TABLE applications ADD COLUMN questionChannelId TEXT;');
+} catch {
+  // Колонка уже существует — игнорируем.
+}
+
+// Миграция для БД, созданных до появления колонки reviewMessageUrl у аппеляций.
+try {
+  db.exec('ALTER TABLE appeals ADD COLUMN reviewMessageUrl TEXT;');
 } catch {
   // Колонка уже существует — игнорируем.
 }
@@ -118,6 +126,16 @@ export function getApplication(userId: string): Application | undefined {
   return row ? rowToApp(row) : undefined;
 }
 
+const selectPendingApps = db.prepare(
+  "SELECT * FROM applications WHERE status = 'pending' ORDER BY submittedAt ASC",
+);
+
+/** Все необработанные заявки на верификацию (status = pending), старые первыми. */
+export function listPendingApplications(): Application[] {
+  const rows = selectPendingApps.all() as unknown as AppRow[];
+  return rows.map(rowToApp);
+}
+
 export function updateApplication(
   userId: string,
   patch: Partial<Application>,
@@ -159,6 +177,7 @@ interface AppealRow {
   text: string;
   submittedAt: number;
   status: AppealStatus;
+  reviewMessageUrl: string | null;
   reviewerId: string | null;
   reason: string | null;
 }
@@ -170,19 +189,21 @@ function rowToAppeal(row: AppealRow): Appeal {
     text: row.text,
     submittedAt: row.submittedAt,
     status: row.status,
+    reviewMessageUrl: row.reviewMessageUrl ?? undefined,
     reviewerId: row.reviewerId ?? undefined,
     reason: row.reason ?? undefined,
   };
 }
 
 const insertAppeal = db.prepare(`
-  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewerId, reason)
-  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewerId, @reason)
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     text = excluded.text,
     submittedAt = excluded.submittedAt,
     status = excluded.status,
+    reviewMessageUrl = excluded.reviewMessageUrl,
     reviewerId = excluded.reviewerId,
     reason = excluded.reason
 `);
@@ -194,6 +215,7 @@ export function saveAppeal(appeal: Appeal): void {
     text: appeal.text,
     submittedAt: appeal.submittedAt,
     status: appeal.status,
+    reviewMessageUrl: appeal.reviewMessageUrl ?? null,
     reviewerId: appeal.reviewerId ?? null,
     reason: appeal.reason ?? null,
   });
@@ -204,6 +226,16 @@ const selectAppeal = db.prepare('SELECT * FROM appeals WHERE userId = ?');
 export function getAppeal(userId: string): Appeal | undefined {
   const row = selectAppeal.get(userId) as AppealRow | undefined;
   return row ? rowToAppeal(row) : undefined;
+}
+
+const selectPendingAppeals = db.prepare(
+  "SELECT * FROM appeals WHERE status = 'pending' ORDER BY submittedAt ASC",
+);
+
+/** Все необработанные аппеляции (status = pending), старые первыми. */
+export function listPendingAppeals(): Appeal[] {
+  const rows = selectPendingAppeals.all() as unknown as AppealRow[];
+  return rows.map(rowToAppeal);
 }
 
 export function updateAppeal(userId: string, patch: Partial<Appeal>): Appeal | undefined {
