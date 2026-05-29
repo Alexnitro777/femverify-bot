@@ -14,6 +14,7 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
   const embed = new EmbedBuilder()
     .setTitle('Новая заявка на верификацию')
     .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+    .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
     .setFooter({ text: `ID: ${user.id}` })
     .setTimestamp();
@@ -88,6 +89,7 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
     .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
     .setTitle('🎉  Добро пожаловать!')
     .setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**.`)
+    .setThumbnail(user.displayAvatarURL())
     .addFields(
       { name: '👥  Участник №', value: `${guild.memberCount}`, inline: true },
       { name: '🗓  Аккаунт создан', value: `<t:${createdTs}:R>`, inline: true },
