@@ -28,16 +28,6 @@ const handler: ModalHandler = {
       return;
     }
 
-    const rulesAnswer = (answers.rules ?? '').trim().toLowerCase();
-    const positive = ['да', 'yes', 'д', 'y', '+'];
-    if (!positive.includes(rulesAnswer)) {
-      await interaction.reply({
-        content: 'Подтвердите, что прочитали правила, ответив «да» в соответствующем поле.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
     // Долгая часть — деферим, чтобы уложиться в окно ответа Discord (баг #1).
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
